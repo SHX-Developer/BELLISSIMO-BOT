@@ -9,22 +9,23 @@ import inline_markups
 import reply_markups
 
 
-#  LIBRARY VARIABLES  #
-
+#  Telegram API token
 bot = telebot.TeleBot(config.token)
 
+#  Connecting database
 db = sqlite3.connect("bellissimo_database.db", check_same_thread=False)
 sql = db.cursor()
 
+#  Getting current date
 date_time = datetime.datetime.now().date()
 
+#  List of cities
 cities = ["Ташкент", "Самарканд", "Андижан", "Коканд", "Фергана", "Чирчик", "Наманган", "Бухара", "Алмалык", "Нурафшон"]
 
 
 
 
-#  CREATING DATABASES
-
+#  Creating tables
 sql.execute('CREATE TABLE IF NOT EXISTS user_access (id INTEGER, username TEXT, firstname TEXT, lastname TEXT, date TIMESTAMP)')
 sql.execute('CREATE TABLE IF NOT EXISTS user_action (id INTEGER, pizza TEXT, size TEXT, dough TEXT, count INTEGER, price INTEGER, description TEXT)')
 sql.execute('CREATE TABLE IF NOT EXISTS user_address (id INTEGER, delivery TEXT, address TEXT, home TEXT, flat TEXT, code TEXT, floor TEXT, entrance TEXT)')
@@ -35,82 +36,83 @@ db.commit()
 
 
 
-#  START COMMAND
-
+#  Command - /start
 @bot.message_handler(commands = ["start"])
 def start(message):
 
+    #  Checking the ID of new user from database
     sql.execute("SELECT id FROM user_access WHERE id = ?", (message.chat.id,))
     user_id = sql.fetchone()
 
+    #  If user ID doesn't exist
     if user_id is None:
 
+        #  Insert data
         sql.execute(f'CREATE TABLE IF NOT EXISTS cart_{message.chat.id} (number INTEGER PRIMARY KEY, pizza TEXT, size TEXT, dough TEXT, count INTEGER, price INTEGER, description TEXT)')
-
         sql.execute('INSERT INTO user_access (id, username, firstname, lastname, date) VALUES (?, ?, ?, ?, ?)',
         (message.chat.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name, date_time))
-
         sql.execute(f'INSERT INTO user_data (id, firstname, lastname, contact, city) VALUES (?, ?, ?, ?, ?)',
         (message.chat.id, "-", "-", "-", "-"))
-
         sql.execute(f'INSERT INTO user_address (id, delivery, address, home, flat, code, floor, entrance) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         (message.chat.id, "-", "-", "-", "-", "-", "-", "-"))
-
         sql.execute(f'INSERT INTO user_action (id, pizza, size, dough, count, price, description) VALUES (?, ?, ?, ?, ?, ?, ?)',
         (message.chat.id, "-", "-", "-", "-", "-", "-"))
-
         db.commit()
 
+        #  Send language message
         bot.send_message(message.chat.id, f"Выберите язык:", reply_markup = reply_markups.language_button)
 
+    #  If user ID exists
     else:
-
         bot.send_message(message.chat.id, f"Выберите язык:", reply_markup = reply_markups.language_button)
 
 
 
 
 
-#  GET CONTACT
-
+#  Get usser contact number
 @bot.message_handler(content_types = ["contact"])
 def get_contact(message):
 
+    #  Selecting contact data of user
     sql.execute('SELECT contact FROM user_data WHERE id = ?', (message.chat.id,))
     user_contact = sql.fetchone()[0]
 
+    #  If user's contact number doesnt exist
     if user_contact == "-":
 
+        #  Update user contact
         sql.execute('UPDATE user_data SET contact = ? WHERE id = ?', (message.contact.phone_number, message.chat.id))
         db.commit()
 
+        #  Send cities message
         user_city = bot.send_message(message.chat.id, "Пожалуйста, выберите город, в котором вы живёте 👇", reply_markup = reply_markups.city_button)
         bot.register_next_step_handler(user_city, check_city)
 
+    #  If user's contact number exists
     else:
+        bot.send_message(message.chat.id, "Выберите раздел:", reply_markup = reply_markups.menu_button)
 
-        bot.send_message(message.chat.id,"Выберите раздел:", reply_markup = reply_markups.menu_button)
 
-#  CHECK CITY
-
+#  Cheking city
 def check_city(message):
 
+    #  If user message in cities list 
     if any(city in message.text for city in cities):
 
+        #  Insert user's city
         sql.execute('UPDATE user_data SET city = ? WHERE id = ?', (message.text, message.chat.id))
         db.commit()
 
-        bot.send_message(message.chat.id,"Выберите раздел:", reply_markup = reply_markups.menu_button)
-
+        bot.send_message(message.chat.id, "Выберите раздел:", reply_markup = reply_markups.menu_button)
+    
+    #  If another word or city
     else:
-
         bot.send_message(message.chat.id,"❌ Что-то пошло не так, попробуйте снова")
         get_city(message)
 
-#  GET CITY
-
+#  Get city
 def get_city(message):
-
     user_city = bot.send_message(message.chat.id, "Пожалуйста, выберите город, в котором вы живёте 👇", reply_markup = reply_markups.city_button)
     bot.register_next_step_handler(user_city, check_city)
 
@@ -118,11 +120,11 @@ def get_city(message):
 
 
 
-#  TEXT
-
+#  TEXT Handler
 @bot.message_handler(content_types = ["text"])
 def text(message):
 
+    #  Getting user id as variable
     sql.execute('SELECT id FROM user_access WHERE id = ?', (message.chat.id,))
     user_id = sql.fetchone()[0]
 
@@ -131,10 +133,12 @@ def text(message):
 
 
 #  LANGUAGE
-
+    
+    #  Russian
     if message.text == "🇷🇺 Русский":
         bot.send_message(user_id, "Отправьте или введите свой номер телефона 👇  в виде:\n<b>+998 ** *** ****</b>", parse_mode = "html", reply_markup = reply_markups.contact_button)
-
+    
+    #  English
     elif message.text == "🇺🇿 O'zbekcha":
         bot.send_message(user_id, "Отправьте или введите свой номер телефона 👇  в виде:\n<b>+998 ** *** ****</b>", parse_mode = "html", reply_markup = reply_markups.contact_button)
 
@@ -143,49 +147,26 @@ def text(message):
 
 
 
-#  MENU
-
+#  MENU 
+    
+    #  Order
     elif message.text == "🛍 Заказать":
         bot.send_message(user_id, f"Рады вас видеть, {message.from_user.first_name} ! Что будете заказывать сегодня 🍕", parse_mode = "html", reply_markup = reply_markups.category_button)
 
-
-
-
-
-
-
-
-
-
-
-#  CATEGORY
-
+    #  CATEGORIES
     elif message.text == "🍕 Пицца":
         bot.send_message(user_id, "Выберите пиццу 🍕", parse_mode = "html", reply_markup = reply_markups.pizza_button)
 
-
-
-
-
-
-
-
-
-
-#  CART
-
+    #  CART
     elif message.text == "📥 Корзина":
-
         sql.execute(f'SELECT pizza FROM cart_{user_id}')
         user_cart = sql.fetchone()
 
         if user_cart == None:
-
             bot.send_message(user_id, "Ваша корзина ещё пуста 😕 Давайте наполним её 📥")
             bot.send_message(message.chat.id, f"Рады вас видеть, {message.from_user.first_name} ! Что будете заказывать сегодня 🍕", reply_markup = reply_markups.category_button)
 
         else:
-
             bot.send_message(user_id, "<b>📥 Корзина</b>", parse_mode = "html", reply_markup = reply_markups.cart_button)
             bot.send_message(user_id,   f"<b>Тип заказа:</b> 🚙 Доставка"
                                         f"\n<b>📍 Адрес</b>"
@@ -221,7 +202,6 @@ def text(message):
 
 
 #  ADD TO CART
-
     elif message.text == "Хочу 😍":
 
         sql.execute('SELECT * FROM user_action WHERE id = ?', (message.chat.id,))
@@ -235,10 +215,12 @@ def text(message):
         bot.send_message(user_id, f"Товар {pizza} успешно добавлен в корзину 📥 Закажем что-нибудь еще?", reply_markup=reply_markups.pizza_button)
         bot.send_message(user_id, "Выберите пиццу 🍕", parse_mode = "html", reply_markup = reply_markups.pizza_button)
 
-        bot.delete_message(message.chat.id, message.message_id)
-        bot.delete_message(message.chat.id, message.message_id - 1)
-        bot.delete_message(message.chat.id, message.message_id - 2)
-
+        try:
+            bot.delete_message(message.chat.id, message.message_id)
+            bot.delete_message(message.chat.id, message.message_id - 1)
+            bot.delete_message(message.chat.id, message.message_id - 2)
+        except:
+            pass
 
 
 
@@ -249,15 +231,17 @@ def text(message):
 
 
 #  BACK BUTTONS
-
     elif message.text == "⬅️ Назад":
         bot.send_message(user_id, f"Рады вас видеть, {message.from_user.first_name} ! Что будете заказывать сегодня 🍕", parse_mode = "html", reply_markup = reply_markups.category_button)
 
     elif message.text == "⬅️  Назад":
         bot.send_message(user_id, "Выберите пиццу 🍕", parse_mode = "html", reply_markup = reply_markups.pizza_button)
-        bot.delete_message(message.chat.id, message.message_id)
-        bot.delete_message(message.chat.id, message.message_id - 1)
-        bot.delete_message(message.chat.id, message.message_id - 2)
+        try:
+            bot.delete_message(message.chat.id, message.message_id)
+            bot.delete_message(message.chat.id, message.message_id - 1)
+            bot.delete_message(message.chat.id, message.message_id - 2)
+        except:
+            pass
 
 
 
@@ -268,18 +252,15 @@ def text(message):
 
 
 #  CLEAR CART
-
     elif message.text == "🔄 Очистить":
         sql.execute(f'SELECT pizza FROM cart_{user_id}')
         user_cart = sql.fetchone()
 
         if user_cart == None:
-
             bot.send_message(user_id, "Ваша корзина ещё пуста 😕 Давайте наполним её 📥")
             bot.send_message(message.chat.id, f"Рады вас видеть, {message.from_user.first_name} ! Что будете заказывать сегодня 🍕", reply_markup = reply_markups.category_button)
 
         else:
-
             sql.execute(f'DELETE FROM cart_{user_id}')
             db.commit()
 
@@ -287,36 +268,23 @@ def text(message):
             bot.send_message(message.chat.id, f"Рады вас видеть, {message.from_user.first_name} ! Что будете заказывать сегодня 🍕", reply_markup = reply_markups.category_button)
 
             try:
-
                 bot.delete_message(message.chat.id, message.message_id)
                 bot.delete_message(message.chat.id, message.message_id - 1)
                 bot.delete_message(message.chat.id, message.message_id - 2)
                 bot.delete_message(message.chat.id, message.message_id - 3)
                 bot.delete_message(message.chat.id, message.message_id - 4)
-
             except:
-
                 pass
 
 
-
-
-
-
-
-
-    #  PIZZA
-
+#  PIZZA
     else:
-
         sql.execute('SELECT * FROM pizza WHERE pizza = ?', (message.text,))
         data = sql.fetchone()
         number = data[0]; pizza = data[1]; small = data[2]; medium = data[3]; big = data[4]; description = data[5]
 
         if data:
-
             if small == "-":
-
                 sql.execute('UPDATE user_action SET pizza = ? WHERE id = ?', (pizza, user_id))
                 sql.execute('UPDATE user_action SET size = ? WHERE id = ?', ("большая", user_id))
                 sql.execute('UPDATE user_action SET dough = ? WHERE id = ?', ("Тонкое", user_id))
@@ -343,7 +311,6 @@ def text(message):
                 inline.row(types.InlineKeyboardButton(text = f"Хочу 😍", callback_data = f"add"))
 
             else:
-
                 sql.execute('UPDATE user_action SET pizza = ? WHERE id = ?', (pizza, user_id))
                 sql.execute('UPDATE user_action SET size = ? WHERE id = ?', ("маленькая", user_id))
                 sql.execute('UPDATE user_action SET dough = ? WHERE id = ?', ("Воздушное", user_id))
@@ -387,18 +354,15 @@ def text(message):
 
 
 
-#  CALLBACK  #
-
+#  CALLBACK HANDLER
 @bot.callback_query_handler(func = lambda call: True)
 def callback(call):
-
     sql.execute('SELECT id FROM user_access WHERE id = ?', (call.message.chat.id,))
     user_id = sql.fetchone()[0]
 
 
 
 #  SMALL
-
     if call.data.startswith("small_"):
         number = call.data.split("_")[1]
 
@@ -449,7 +413,6 @@ def callback(call):
 
 
 #  MEDIUM
-
     elif call.data.startswith("medium_"):
         number = call.data.split("_")[1]
 
@@ -501,7 +464,6 @@ def callback(call):
 
 
 #  BIG
-
     elif call.data.startswith("big_"):
         number = call.data.split("_")[1]
 
@@ -556,7 +518,6 @@ def callback(call):
 #  DOUGH
 
     #  MEDIUM
-
     elif call.data.startswith("mediumthin_"):
         number = call.data.split("_")[1]
 
@@ -653,7 +614,6 @@ def callback(call):
 
 
     #  BIG
-
     elif call.data.startswith("bigthin_"):
         number = call.data.split("_")[1]
 
@@ -879,7 +839,6 @@ def callback(call):
 #  PLUS
 
     #  SMALL
-
     elif call.data.startswith("smallplus_"):
         number = call.data.split("_")[1]
 
@@ -925,7 +884,6 @@ def callback(call):
             reply_markup = inline)
 
     #  MEDIUM
-
     elif call.data.startswith("mediumplus_"):
         number = call.data.split("_")[1]
 
@@ -972,7 +930,6 @@ def callback(call):
             reply_markup = inline)
 
     #  BIG
-
     elif call.data.startswith("bigplus_"):
         number = call.data.split("_")[1]
 
@@ -1003,7 +960,6 @@ def callback(call):
             inline.row(types.InlineKeyboardButton(text = f"Хочу 😍", callback_data = f"add"))
 
         else:
-
             sql.execute('UPDATE user_action SET count = count + ? WHERE id = ?', (1, call.message.chat.id))
             db.commit()
 
@@ -1047,9 +1003,7 @@ def callback(call):
 
 
 #  MINUS
-
     #  SMALL
-
     elif call.data.startswith("smallminus_"):
         number = call.data.split("_")[1]
 
@@ -1095,7 +1049,6 @@ def callback(call):
             reply_markup = inline)
 
     #  MEDIUM
-
     elif call.data.startswith("mediumminus_"):
         number = call.data.split("_")[1]
 
@@ -1142,7 +1095,6 @@ def callback(call):
             reply_markup = inline)
 
     #  BIG
-
     elif call.data.startswith("bigminus_"):
         number = call.data.split("_")[1]
 
@@ -1174,7 +1126,6 @@ def callback(call):
             inline.row(types.InlineKeyboardButton(text = f"Хочу 😍", callback_data = f"add"))
 
         else:
-
             sql.execute('UPDATE user_action SET count = count - ? WHERE id = ?', (1, call.message.chat.id))
             db.commit()
 
@@ -1221,7 +1172,6 @@ def callback(call):
 
 
     #  ADD TO CART
-
     elif call.data == "add":
 
         sql.execute('SELECT id FROM user_access WHERE id = ?', (call.message.chat.id,))
@@ -1246,7 +1196,6 @@ def callback(call):
 
 
     #  EDIT CART
-
     elif call.data == "edit_cart":
 
         bot.delete_message(call.message.chat.id, call.message.message_id)
@@ -1262,14 +1211,12 @@ def callback(call):
             price = row[5]
 
             if count == 1:
-
                 inline = types.InlineKeyboardMarkup()
                 inline.row(types.InlineKeyboardButton(text = "❌", callback_data = f"delete_{number}"),
                            types.InlineKeyboardButton(text = f"{count}", callback_data = "-"),
                            types.InlineKeyboardButton(text = "➕", callback_data = f"plus_{number}"))
 
             else:
-
                 inline = types.InlineKeyboardMarkup()
                 inline.row(types.InlineKeyboardButton(text = "➖", callback_data = f"minus_{number}"),
                            types.InlineKeyboardButton(text = f"{count}", callback_data = "-"),
@@ -1282,12 +1229,10 @@ def callback(call):
 
 
     #  MINUS CART
-
     elif call.data.startswith("minus_"):
         number = call.data.split("_")[1]
 
         try:
-
             sql.execute(f'UPDATE cart_{user_id} SET count = count - ? WHERE number = ?', (1, number))
             db.commit()
 
@@ -1296,14 +1241,12 @@ def callback(call):
             pizza = data[1]; size = data[2]; count = data[4]; price = data[5]
 
             if count == 1:
-
                 inline = types.InlineKeyboardMarkup()
                 inline.row(types.InlineKeyboardButton(text = "❌", callback_data = f"delete_{number}"),
                         types.InlineKeyboardButton(text = f"{count}", callback_data = "-"),
                         types.InlineKeyboardButton(text = "➕", callback_data = f"plus_{number}"))
 
             else:
-
                 inline = types.InlineKeyboardMarkup()
                 inline.row(types.InlineKeyboardButton(text = "➖", callback_data = f"minus_{number}"),
                         types.InlineKeyboardButton(text = f"{count}", callback_data = "-"),
@@ -1312,18 +1255,15 @@ def callback(call):
             bot.edit_message_text(chat_id = call.message.chat.id, message_id = call.message.message_id, text = f"<b>{pizza} {size}</b>\n{count} x {price} = {price * count}", parse_mode = "html", reply_markup = inline)
 
         except:
-
             bot.delete_message(call.message.chat.id, call.message.message_id)
 
 
 
     #  PLUS CART
-
     elif call.data.startswith("plus_"):
         number = call.data.split("_")[1]
 
         try:
-
             sql.execute(f'UPDATE cart_{user_id} SET count = count + ? WHERE number = ?', (1, number))
             db.commit()
 
@@ -1332,14 +1272,12 @@ def callback(call):
             pizza = data[1]; size = data[2]; count = data[4]; price = data[5]
 
             if count == 1:
-
                 inline = types.InlineKeyboardMarkup()
                 inline.row(types.InlineKeyboardButton(text = "❌", callback_data = f"delete_{number}"),
                            types.InlineKeyboardButton(text = f"{count}", callback_data = "-"),
                            types.InlineKeyboardButton(text = "➕", callback_data = f"plus_{number}"))
 
             else:
-
                 inline = types.InlineKeyboardMarkup()
                 inline.row(types.InlineKeyboardButton(text = "➖", callback_data = f"minus_{number}"),
                            types.InlineKeyboardButton(text = f"{count}", callback_data = "-"),
@@ -1348,25 +1286,18 @@ def callback(call):
             bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text = f"<b>{pizza} {size}</b>\n{count} x {price} = {price * count}", parse_mode = "html", reply_markup = inline)
 
         except:
-
             bot.delete_message(call.message.chat.id, call.message.message_id)
 
 
 
     #  DELETE CART
-
     elif call.data.startswith("delete_"):
         number = call.data.split("_")[1]
-
         bot.delete_message(call.message.chat.id, call.message.message_id)
-
         try:
-
             sql.execute(f'DELETE FROM cart_{user_id} WHERE number = ?', (number,))
             db.commit()
-
         except:
-
             pass
 
 
@@ -1508,57 +1439,12 @@ def callback(call):
 
 
 
-
-
-
-
-
-
-
-
-
-
-    #  EDIT INLINE TEXT
-
-    if call.data == "edit_inline":
-        bot.edit_message_text(call.message.chat.id, call.message.message_id, text = "<b> ТЕКСТ </b>", parse_mode = "html", reply_markup = None)
-
-    #  EDIT INLINE PHOTO
-
-    if call.data == "edit_photo":
-        with open("photo/photo.jpg", "rb") as photo:
-            bot.edit_message_media( media = telebot.types.InputMedia(
-                                    type = 'photo',
-                                    media = photo,
-                                    chat_id = call.message.chat.id,
-                                    message_id = call.message.message_id,
-                                    caption = "ТЕКСТ",
-                                    parse_mode ="html"),
-                                    reply_markup = None)
-
-    #  DELETE INLINE  #
-
-    if call.data == "delete_inline":
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-
-
-
-
-
-#  LAUNCH THE BOT  #
-
+#  LAUNCH THE BOT
 if __name__=='__main__':
-
     while True:
-
         try:
-
             bot.polling(non_stop=True, interval=0)
-
         except Exception as e:
-
             print(e)
-
             time.sleep(5)
-
             continue
