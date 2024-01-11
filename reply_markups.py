@@ -1,14 +1,16 @@
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 
 
-
+#  LANGUAGE
 language_button = ReplyKeyboardMarkup(resize_keyboard = True)
 language_button.row("🇺🇿 O'zbekcha", "🇷🇺 Русский")
 
+#  CONTACT
 contact_button = ReplyKeyboardMarkup(resize_keyboard = True)
 contact_button.row(KeyboardButton(text="📱 Мой номер", request_contact=True))
 contact_button.row(KeyboardButton(text="⬅️ Назад"))
 
+#  CITIES
 city_button = ReplyKeyboardMarkup(resize_keyboard = True)
 city_button.row("Ташкент", "Самарканд")
 city_button.row("Андижан", "Коканд")
@@ -16,26 +18,31 @@ city_button.row("Фергана", "Чирчик")
 city_button.row("Наманган", "Бухара")
 city_button.row("Алмалык", "Нурафшон")
 
+#  MENU
 menu_button = ReplyKeyboardMarkup(resize_keyboard = True)
 menu_button.row("🛍 Заказать")
 menu_button.row("📖 Мои заказы", "🍕 Наши филиалы")
 menu_button.row("☎️ Обратная связь", "⚙️ Настройки")
 
+#  ORDER TYPE
 order_type_button = ReplyKeyboardMarkup(resize_keyboard = True)
 order_type_button.row("🚙 Доставка", "🏃 Самовывоз")
 order_type_button.row("⬅️ Назад")
 
+#  ORDER LOCATION
 order_delivery_button = ReplyKeyboardMarkup(resize_keyboard = True)
 order_delivery_button.row("📍 Определить ближайщий филиал")
 order_delivery_button.row("🗺 Мои адреса")
 order_delivery_button.row("")
 
+#  FOODS MENU
 category_button = ReplyKeyboardMarkup(resize_keyboard = True)
 category_button.row("⬅️ Назад", "💥 Акции", "📥 Корзина")
 category_button.row("🍕 Пицца", "🥤 Напитки")
 category_button.row("🔥 Горячие закуски", "🥗 Салаты")
 category_button.row("🍰 Десерты", "⚪️ Соусы")
 
+#  PIZZA MENU
 pizza_button = ReplyKeyboardMarkup(resize_keyboard = True)
 pizza_button.row("⬅️ Назад", "📥 Корзина")
 pizza_button.row("Куриный донар", "Сырная пицца")
@@ -50,7 +57,7 @@ pizza_button.row("Дабл Чизбургер", "Гавайская")
 pizza_button.row("Вегетарианская", "Беллиссимо")
 pizza_button.row("Альфредо")
 
-
+#  ACTION
 action_button = ReplyKeyboardMarkup(resize_keyboard = True)
 action_button.row("Хочу 😍")
 action_button.row("⬅️  Назад")
